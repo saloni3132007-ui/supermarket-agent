@@ -1,33 +1,27 @@
 {
-  "name": "supermarket-agent",
+  "name": "supermarket-ai-agent",
   "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
+  "description": "Supermarket Inventory AI Agent with x402 payments on Avalanche Fuji",
+  "type": "module",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "demo": "npx ts-node cli-demo.ts",
-    "dev": "npx ts-node server.ts"
+    "dev": "npx ts-node --esm server.ts",
+    "demo": "npx ts-node --skipProject cli-demo.ts",
+    "build": "tsc",
+    "start": "node dist/server.js"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/saloni3132007-ui/supermarket-agent.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "commonjs",
-  "bugs": {
-    "url": "https://github.com/saloni3132007-ui/supermarket-agent/issues"
-  },
-  "homepage": "https://github.com/saloni3132007-ui/supermarket-agent#readme",
   "dependencies": {
-    "dotenv": "^17.3.1",
-    "express": "^5.2.1"
+    "dotenv": "^16.4.5",
+    "ethers": "^6.11.1",
+    
+    "express": "^4.19.2"
   },
   "devDependencies": {
-    "@types/express": "^5.0.6",
-    "@types/node": "^25.5.0",
+    "@types/express": "^4.17.21",
+    "@types/node": "^20.12.7",
     "ts-node": "^10.9.2",
-    "typescript": "^5.9.3"
+    "typescript": "^5.4.5"
+  },
+  "engines": {
+    "node": ">=18.0.0"
   }
 }

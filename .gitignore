@@ -1,4 +1,22 @@
-node_modules/
+# Environment & secrets — NEVER commit these
 .env
-artifacts/
+.env.local
+
+# Node
+node_modules/
+dist/
+*.js.map
+
+# Hardhat
 cache/
+artifacts/
+typechain-types/
+
+# Foundry
+out/
+broadcast/
+
+# Misc
+.DS_Store
+*.log
+coverage/
