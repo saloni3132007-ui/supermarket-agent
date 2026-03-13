@@ -1,70 +1,99 @@
 #!/usr/bin/env node
-/**
- * cli-demo.ts
- * ─────────────────────────────────────────────────────────────────────────────
- * Supermarket AI Agent — Interactive CLI Demo
- * Simulates the x402 payment flow end-to-end in the terminal.
- * 
- * Usage:
- *   npx ts-node cli-demo.ts
- *   (or: node dist/cli-demo.js)
- */
-
+import { ethers } from "ethers";
 import { loadInventory, analyzeExpiry, generateDiscountReport, generateStockSummary } from "./agent.ts";
 import readline from "readline";
+import dotenv from "dotenv";
+dotenv.config();
 
 const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
 const ask = (q: string): Promise<string> => new Promise((r) => rl.question(q, r));
 
-// Simulated wallet balance
-let walletBalance = 0.05; // 0.05 AVAX
-const QUERY_COST = 0.001;
+const QUERY_COST = "0.001";
+const FUJI_RPC = process.env.FUJI_RPC || "https://api.avax-test.network/ext/bc/C/rpc";
+const PRIVATE_KEY = process.env.PRIVATE_KEY!;
+const PAYMENT_RECEIVER = process.env.PAYMENT_RECEIVER!;
 
-function printHeader() {
+function sleep(ms: number) {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+async function printHeader() {
+  const provider = new ethers.JsonRpcProvider(FUJI_RPC);
+  const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+  const balance = await provider.getBalance(wallet.address);
+  const balanceAVAX = parseFloat(ethers.formatEther(balance));
+
   console.clear();
   console.log("╔══════════════════════════════════════════════════════════╗");
   console.log("║       🛒  Supermarket AI Agent  |  Powered by x402       ║");
   console.log("║              Network: Avalanche Fuji Testnet              ║");
   console.log("╚══════════════════════════════════════════════════════════╝");
-  console.log(`💼 Wallet: ${process.env.SHOPKEEPER_WALLET || "Demo Wallet"}`);
-  console.log(`💰 Balance: ${walletBalance.toFixed(4)} AVAX\n`);
+  console.log(`💼 Wallet: ${wallet.address}`);
+  console.log(`💰 Real Balance: ${balanceAVAX.toFixed(4)} AVAX\n`);
 }
 
-async function simulateX402Payment(queryType: string): Promise<boolean> {
+async function realX402Payment(queryType: string): Promise<boolean> {
   console.log(`\n📡 Requesting: ${queryType}...`);
-  await sleep(600);
+  await sleep(500);
   console.log("🔒 Server Response: 402 Payment Required");
   console.log(`   └─ Amount required: ${QUERY_COST} AVAX`);
-  console.log(`   └─ Pay to: ${process.env.PAYMENT_RECEIVER || "0xAGENT_WALLET"}`);
+  console.log(`   └─ Pay to: ${PAYMENT_RECEIVER}`);
   console.log(`   └─ Network: avalanche-fuji`);
-  await sleep(400);
+  await sleep(500);
 
-  if (walletBalance < QUERY_COST) {
-    console.log("\n❌ Insufficient AVAX balance!");
+  try {
+    const provider = new ethers.JsonRpcProvider(FUJI_RPC);
+    const wallet = new ethers.Wallet(PRIVATE_KEY, provider);
+
+    // Check real balance
+    const balance = await provider.getBalance(wallet.address);
+    const balanceAVAX = parseFloat(ethers.formatEther(balance));
+
+    if (balanceAVAX < parseFloat(QUERY_COST)) {
+      console.log("\n❌ Insufficient AVAX balance!");
+      console.log(`   Your balance: ${balanceAVAX.toFixed(4)} AVAX`);
+      console.log(`   Required: ${QUERY_COST} AVAX`);
+      return false;
+    }
+
+    console.log("\n💳 Sending real AVAX payment on Fuji blockchain...");
+    await sleep(500);
+
+    // Send REAL transaction
+    const tx = await wallet.sendTransaction({
+      to: PAYMENT_RECEIVER,
+      value: ethers.parseEther(QUERY_COST),
+    });
+
+    console.log(`⏳ Transaction submitted! Waiting for confirmation...`);
+    console.log(`   └─ Tx Hash: ${tx.hash}`);
+
+    // Wait for confirmation
+    const receipt = await tx.wait();
+
+    const newBalance = await provider.getBalance(wallet.address);
+    const newBalanceAVAX = parseFloat(ethers.formatEther(newBalance));
+
+    console.log(`\n✅ Payment CONFIRMED on Avalanche Fuji!`);
+    console.log(`   └─ Tx Hash: ${tx.hash}`);
+    console.log(`   └─ Block: ${receipt?.blockNumber}`);
+    console.log(`   └─ Amount: ${QUERY_COST} AVAX deducted`);
+    console.log(`   └─ New balance: ${newBalanceAVAX.toFixed(4)} AVAX`);
+    console.log(`   └─ 🔗 Explorer: https://testnet.snowtrace.io/tx/${tx.hash}`);
+    await sleep(500);
+
+    console.log("\n🔓 Payment verified! Access granted.\n");
+    await sleep(400);
+    return true;
+
+  } catch (err: any) {
+    console.error("\n❌ Payment failed:", err.message);
     return false;
   }
-
-  console.log("\n💳 Processing payment via x402...");
-  await sleep(800);
-
-  // Simulate transaction
-  const fakeTxHash = "0x" + Math.random().toString(16).substring(2).padEnd(64, "0");
-  walletBalance -= QUERY_COST;
-
-  console.log(`✅ Payment sent!`);
-  console.log(`   └─ Tx Hash: ${fakeTxHash.substring(0, 20)}...`);
-  console.log(`   └─ Amount: ${QUERY_COST} AVAX deducted`);
-  console.log(`   └─ New balance: ${walletBalance.toFixed(4)} AVAX`);
-  console.log(`   └─ Explorer: https://testnet.snowtrace.io/tx/${fakeTxHash}`);
-  await sleep(600);
-
-  console.log("\n🔓 Payment verified! Access granted.\n");
-  await sleep(400);
-  return true;
 }
 
 async function runExpiryCheck() {
-  const paid = await simulateX402Payment("EXPIRY_CHECK");
+  const paid = await realX402Payment("EXPIRY_CHECK");
   if (!paid) return;
 
   console.log("🤖 AI Agent analyzing inventory...\n");
@@ -80,7 +109,7 @@ async function runExpiryCheck() {
 }
 
 async function runStockCheck() {
-  const paid = await simulateX402Payment("STOCK_CHECK");
+  const paid = await realX402Payment("STOCK_CHECK");
   if (!paid) return;
 
   console.log("📦 Fetching stock data...\n");
@@ -91,12 +120,8 @@ async function runStockCheck() {
   console.log(summary);
 }
 
-function sleep(ms: number) {
-  return new Promise((r) => setTimeout(r, ms));
-}
-
 async function main() {
-  printHeader();
+  await printHeader();
 
   while (true) {
     console.log("What would you like to do?\n");
@@ -134,7 +159,7 @@ async function main() {
     }
 
     await ask("\nPress Enter to continue...");
-    printHeader();
+    await printHeader();
   }
 }
 
