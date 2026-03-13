@@ -1,0 +1,92 @@
+[
+  {
+    "id": "P001",
+    "product_name": "Amul Full Cream Milk (1L)",
+    "category": "Dairy",
+    "expiry_date": "2026-03-14",
+    "stock_count": 24,
+    "price_inr": 68,
+    "supplier": "Amul"
+  },
+  {
+    "id": "P002",
+    "product_name": "Britannia Bread (400g)",
+    "category": "Bakery",
+    "expiry_date": "2026-03-15",
+    "stock_count": 12,
+    "price_inr": 45,
+    "supplier": "Britannia"
+  },
+  {
+    "id": "P003",
+    "product_name": "Nestle Yogurt (400g)",
+    "category": "Dairy",
+    "expiry_date": "2026-03-16",
+    "stock_count": 18,
+    "price_inr": 55,
+    "supplier": "Nestle"
+  },
+  {
+    "id": "P004",
+    "product_name": "Lays Classic Salted (100g)",
+    "category": "Snacks",
+    "expiry_date": "2026-04-10",
+    "stock_count": 60,
+    "price_inr": 30,
+    "supplier": "PepsiCo"
+  },
+  {
+    "id": "P005",
+    "product_name": "Tropicana Orange Juice (1L)",
+    "category": "Beverages",
+    "expiry_date": "2026-03-14",
+    "stock_count": 9,
+    "price_inr": 120,
+    "supplier": "Tropicana"
+  },
+  {
+    "id": "P006",
+    "product_name": "Haldirams Mixture (500g)",
+    "category": "Snacks",
+    "expiry_date": "2026-05-01",
+    "stock_count": 35,
+    "price_inr": 110,
+    "supplier": "Haldirams"
+  },
+  {
+    "id": "P007",
+    "product_name": "Paneer Fresh (200g)",
+    "category": "Dairy",
+    "expiry_date": "2026-03-13",
+    "stock_count": 7,
+    "price_inr": 90,
+    "supplier": "Mother Dairy"
+  },
+  {
+    "id": "P008",
+    "product_name": "Maggi Noodles 2-Min (560g)",
+    "category": "Instant Food",
+    "expiry_date": "2026-06-20",
+    "stock_count": 48,
+    "price_inr": 85,
+    "supplier": "Nestle"
+  },
+  {
+    "id": "P009",
+    "product_name": "Fortune Refined Oil (1L)",
+    "category": "Cooking Oil",
+    "expiry_date": "2026-09-15",
+    "stock_count": 22,
+    "price_inr": 145,
+    "supplier": "Adani Wilmar"
+  },
+  {
+    "id": "P010",
+    "product_name": "Real Guava Juice (1L)",
+    "category": "Beverages",
+    "expiry_date": "2026-03-15",
+    "stock_count": 14,
+    "price_inr": 105,
+    "supplier": "Dabur"
+  }
+]
