@@ -88,5 +88,17 @@
     "stock_count": 14,
     "price_inr": 105,
     "supplier": "Dabur"
+  },
+  {
+    "id": "PROD011",
+    "product_name": "Amul Butter 500g",
+    "category": "dairy",
+    "expiry_date": "2026-03-25",
+    "stock_count": 100,
+    "price_inr": 280,
+    "unit": "piece",
+    "discount_percent": 0,
+    "added_via": "QR_SCAN",
+    "added_at": "2026-03-14T07:05:17.231Z"
   }
 ]

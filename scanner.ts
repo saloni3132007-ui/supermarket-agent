@@ -1,10 +1,10 @@
 import fs from "fs";
 import path from "path";
-import Anthropic from "@anthropic-ai/sdk";
 import dotenv from "dotenv";
+import { Jimp } from "jimp";
+import { BrowserQRCodeReader } from "@zxing/browser";
 dotenv.config();
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 const INVENTORY_PATH = path.join(process.cwd(), "inventory.json");
 
 function loadInventory(): any[] {
@@ -16,131 +16,105 @@ function saveInventory(inventory: any[]): void {
   console.log("✅ inventory.json updated!");
 }
 
-async function extractQRData(imagePath: string): Promise<string> {
-  console.log(`\n📷 Reading QR code from: ${imagePath}`);
-  const imageBuffer = fs.readFileSync(imagePath);
-  const base64Image = imageBuffer.toString("base64");
-  const ext = path.extname(imagePath).toLowerCase();
+function parseQRText(qrText: string): any {
+  console.log("\n🤖 Parsing product details from QR...");
 
-  let mediaType: "image/jpeg" | "image/png" | "image/webp" = "image/jpeg";
-  if (ext === ".png") mediaType = "image/png";
-  if (ext === ".webp") mediaType = "image/webp";
+  // Try to parse key-value format
+  // Example: "Product: Amul Milk | Price: 60 | Expiry: 2026-03-20"
+  const result: any = {
+    product_name: "Unknown Product",
+    category: "general",
+    expiry_date: getDefaultExpiry(),
+    stock_count: 50,
+    price_inr: 100,
+    unit: "piece",
+    discount_percent: 0,
+  };
 
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 1000,
-    messages: [
-      {
-        role: "user",
-        content: [
-          {
-            type: "image",
-            source: {
-              type: "base64",
-              media_type: mediaType,
-              data: base64Image,
-            },
-          },
-          {
-            type: "text",
-            text: `Look at this image carefully. 
-If it contains a QR code or barcode, read and extract ALL text/data from it.
-If it's a product image, extract product details you can see.
-Return ONLY the raw extracted text/data, nothing else.
-If you cannot read anything useful, say "UNREADABLE".`,
-          },
-        ],
-      },
-    ],
-  });
+  // Parse pipe-separated key:value pairs
+  const parts = qrText.split("|").map((p) => p.trim());
+  for (const part of parts) {
+    const [key, ...valueParts] = part.split(":");
+    const value = valueParts.join(":").trim();
 
-  const text = response.content[0].type === "text" 
-    ? response.content[0].text 
-    : "UNREADABLE";
-  console.log(`📋 Extracted: ${text}`);
-  return text;
-}
+    if (!key || !value) continue;
 
-async function parseProductFromQR(qrData: string): Promise<any> {
-  console.log("\n🤖 AI parsing product details...");
+    const k = key.toLowerCase().trim();
 
-  const today = new Date();
-  const sevenDaysLater = new Date(today);
-  sevenDaysLater.setDate(today.getDate() + 7);
-  const defaultExpiry = sevenDaysLater.toISOString().split("T")[0];
-
-  const response = await client.messages.create({
-    model: "claude-sonnet-4-20250514",
-    max_tokens: 1000,
-    messages: [
-      {
-        role: "user",
-        content: `You are a supermarket inventory assistant.
-
-Extract product details from this data and return ONLY a JSON object:
-"${qrData}"
-
-Return this exact JSON format:
-{
-  "product_name": "product name here",
-  "category": "dairy/bakery/produce/meat/beverage/snack/grain",
-  "expiry_date": "${defaultExpiry}",
-  "stock_count": 50,
-  "price_inr": 100,
-  "unit": "kg/litre/piece/pack",
-  "discount_percent": 0
-}
-
-Rules:
-- If expiry not found, use: ${defaultExpiry}
-- If price not found, estimate based on product type
-- If stock not found, set to 50
-- Return ONLY the JSON, no other text, no markdown`,
-      },
-    ],
-  });
-
-  const text = response.content[0].type === "text" 
-    ? response.content[0].text 
-    : "{}";
-
-  try {
-    const clean = text.replace(/```json|```/g, "").trim();
-    return JSON.parse(clean);
-  } catch {
-    console.error("❌ Could not parse AI response");
-    return null;
+    if (k.includes("product") || k.includes("name")) {
+      result.product_name = value;
+    } else if (k.includes("price") || k.includes("inr") || k.includes("cost")) {
+      result.price_inr = parseFloat(value.replace(/[^0-9.]/g, "")) || 100;
+    } else if (k.includes("expir") || k.includes("exp") || k.includes("date")) {
+      result.expiry_date = value || getDefaultExpiry();
+    } else if (k.includes("stock") || k.includes("qty") || k.includes("quantity")) {
+      result.stock_count = parseInt(value) || 50;
+    } else if (k.includes("categor")) {
+      result.category = value;
+    } else if (k.includes("unit")) {
+      result.unit = value;
+    } else if (k.includes("discount")) {
+      result.discount_percent = parseFloat(value) || 0;
+    }
   }
+
+  // If no pipe format, use entire text as product name
+  if (result.product_name === "Unknown Product" && qrText.length > 0) {
+    result.product_name = qrText.substring(0, 50);
+  }
+
+  return result;
+}
+
+function getDefaultExpiry(): string {
+  const date = new Date();
+  date.setDate(date.getDate() + 7);
+  return date.toISOString().split("T")[0];
 }
 
 export async function addProductToInventory(imagePath: string): Promise<void> {
   try {
-    const qrData = await extractQRData(imagePath);
+    console.log(`\n📷 Reading QR code from: ${imagePath}`);
 
-    if (qrData === "UNREADABLE") {
-      console.log("❌ Could not read QR code. Make sure image is clear!");
-      return;
+    // Read QR using jimp + zxing
+    const image = await Jimp.read(imagePath);
+    const { data, width, height } = image.bitmap;
+
+    // Convert to luminance array for zxing
+    const luminances = new Uint8ClampedArray(width * height);
+    for (let i = 0; i < width * height; i++) {
+      const r = data[i * 4];
+      const g = data[i * 4 + 1];
+      const b = data[i * 4 + 2];
+      luminances[i] = Math.round(0.299 * r + 0.587 * g + 0.114 * b);
     }
 
-    const product = await parseProductFromQR(qrData);
+    // Decode QR
+    const { BinaryBitmap, HybridBinarizer, MultiFormatReader, RGBLuminanceSource } = await import("@zxing/library");
+    const source = new RGBLuminanceSource(luminances, width, height);
+    const bitmap = new BinaryBitmap(new HybridBinarizer(source));
+    const reader = new MultiFormatReader();
+    const result = reader.decode(bitmap);
+    const qrText = result.getText();
 
-    if (!product) {
-      console.log("❌ Could not extract product details!");
-      return;
-    }
+    console.log(`📋 QR Data: ${qrText}`);
 
+    // Parse product details
+    const product = parseQRText(qrText);
+
+    // Load inventory and add
     const inventory = loadInventory();
     const newId = `PROD${String(inventory.length + 1).padStart(3, "0")}`;
 
     const newProduct = {
       id: newId,
       product_name: product.product_name,
-      category: product.category || "general",
+      category: product.category,
       expiry_date: product.expiry_date,
-      stock_count: product.stock_count || 50,
-      price_inr: product.price_inr || 100,
-      unit: product.unit || "piece",
-      discount_percent: product.discount_percent || 0,
+      stock_count: product.stock_count,
+      price_inr: product.price_inr,
+      unit: product.unit,
+      discount_percent: product.discount_percent,
       added_via: "QR_SCAN",
       added_at: new Date().toISOString(),
     };
@@ -158,13 +132,14 @@ export async function addProductToInventory(imagePath: string): Promise<void> {
     inventory.push(newProduct);
     saveInventory(inventory);
 
-    console.log(`\n🎉 "${newProduct.product_name}" successfully added to inventory!`);
+    console.log(`\n🎉 "${newProduct.product_name}" added to inventory!`);
     console.log(`   ID     : ${newProduct.id}`);
     console.log(`   Expiry : ${newProduct.expiry_date}`);
     console.log(`   Stock  : ${newProduct.stock_count} units`);
     console.log(`   Price  : ₹${newProduct.price_inr}`);
 
   } catch (err: any) {
-    console.error("❌ Error:", err.message);
+    console.error("❌ Error reading QR:", err.message);
+    console.log("💡 Make sure the image contains a clear QR code!");
   }
 }
